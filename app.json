@@ -1,0 +1,37 @@
+{
+  "expo": {
+    "name": "Breachly",
+    "slug": "breachly",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "breachly",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "splash": {
+      "backgroundColor": "#0B121A",
+      "resizeMode": "contain"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.breachly.app"
+    },
+    "android": {
+      "package": "com.breachly.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#0B121A"
+      }
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
+    "plugins": ["expo-router", "expo-font"],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "supabaseUrl": "",
+      "supabaseAnonKey": ""
+    }
+  }
+}
