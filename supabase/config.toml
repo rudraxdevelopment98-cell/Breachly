@@ -1,0 +1,4 @@
+project_id = "breachly"
+
+[functions.check-breach]
+verify_jwt = true
