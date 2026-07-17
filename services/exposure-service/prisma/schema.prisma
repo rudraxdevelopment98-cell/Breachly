@@ -1,0 +1,71 @@
+// exposure-service schema (aegis §6). Its OWN database — no shared tables.
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("EXPOSURE_DATABASE_URL")
+}
+
+model BreachRecord {
+  id            String   @id @default(uuid())
+  userId        String
+  source        String // "hibp"
+  breachName    String
+  title         String
+  domain        String
+  year          Int?
+  breachDate    String?
+  exposedFields String[]
+  description   String
+  passwordExposed Boolean @default(false)
+  discoveredAt  DateTime @default(now())
+
+  @@unique([userId, source, breachName])
+  @@index([userId])
+  @@map("breach_records")
+}
+
+model BrokerListing {
+  id            String   @id @default(uuid())
+  userId        String
+  brokerName    String
+  brokerDomain  String
+  registry      String? // e.g. "ca_drop"
+  status        String   @default("found") // found|opt_out_pending|removed|reappeared
+  lastCheckedAt DateTime @default(now())
+  optOutRequests OptOutRequest[]
+
+  @@index([userId])
+  @@map("broker_listings")
+}
+
+model OptOutRequest {
+  id              String        @id @default(uuid())
+  listingId       String
+  listing         BrokerListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  status          String        @default("draft")
+  submittedAt     DateTime?
+  confirmationRef String?
+  createdAt       DateTime      @default(now())
+
+  @@index([listingId])
+  @@map("opt_out_requests")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  actorId    String?
+  action     String
+  targetType String
+  targetId   String?
+  ip         String?
+  metadata   Json?
+  timestamp  DateTime @default(now())
+
+  @@index([actorId])
+  @@map("audit_log")
+}

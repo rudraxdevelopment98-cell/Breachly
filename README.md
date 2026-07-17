@@ -1,75 +1,67 @@
-# Breachly
+# Personal Data OS — codename **aegis**
 
-Check whether your email has shown up in known data breaches — then keep
-watching and get alerted the moment it shows up in a new one.
+> One app for exposure monitoring, passwords, and documents — with **zero-knowledge
+> privacy by design.** See [`CLAUDE.md`](./CLAUDE.md) for the full product brief.
 
-Built mobile-first with Expo (React Native) + TypeScript. See [`CLAUDE.md`](./CLAUDE.md)
-for the full product brief.
+This repo began as *Breachly*, a mobile breach-checking MVP (now at
+[`apps/mobile/`](./apps/mobile)). It has been re-scoped into the four-pillar
+platform described in `CLAUDE.md`: exposure scanning + opt-out, a zero-knowledge
+password vault, a zero-knowledge document vault with sharing, and age-tiered
+family accounts.
 
-## What’s built (MVP vertical slice)
+## Monorepo layout
 
-- **Check screen** — email input → verdict, with a list of breaches (name,
-  year, what leaked), plain-English **“Do this now”** steps, and a monitoring
-  upsell card. Handles loading, clear, and error states.
-- **`check-breach` Edge Function** — Supabase Edge Function that calls Have I
-  Been Pwned with the secret API key server-side and returns clean JSON. The
-  app never holds the key.
+```
+packages/
+  crypto/          Zero-knowledge crypto core (Argon2id KDF, AEAD, X25519 wrapping)
+                   — shared by web + mobile. VERIFIED (9/9 smoke tests pass).
+  types/           Shared DTOs / enums across services + clients
+  audit/           Reusable audit-log pipeline (principle #3: log every access)
+services/
+  auth-service/    NestJS — signup/login (Argon2id), sessions, JWT rotation, MFA
+  exposure-service/NestJS — HIBP breach checks, curated broker registry, DROP adapter
+apps/
+  web/             Next.js 14 — Phase 1 exposure dashboard
+  mobile/          Expo (React Native) — the original Breachly MVP, seeds the RN client
+```
 
-Not built yet (Phase 2): auth, RevenueCat paywall, monitoring backend,
-password exposure check. See `CLAUDE.md` §5.
+## Non-negotiable principles (`CLAUDE.md` §2)
 
-## Run it
+1. Server never holds plaintext passwords, vault keys, or document keys.
+2. All vault/document crypto happens client-side.
+3. Every access to sensitive data is audit-logged.
+4. Minor-account permissions are age-banded, not a blanket toggle.
+5. Every sharing grant is independently, immediately revocable.
+
+## Phase 1 status (Foundations + Exposure Scanner)
+
+| Piece | Status |
+| --- | --- |
+| `packages/crypto` | ✅ Implemented + **verified** (`npm test` in the package) |
+| `packages/types`, `packages/audit` | ✅ Implemented + typecheck clean |
+| `auth-service` | ✅ Scaffold: Argon2id auth, sessions, JWT rotation, TOTP, audit |
+| `exposure-service` | ✅ Scaffold: HIBP check, 20-broker registry, DROP adapter, audit |
+| `apps/web` | ✅ Scaffold: exposure dashboard (mock mode by default) |
+| `apps/mobile` | ✅ Preserved Breachly MVP |
+
+Scaffolded services/apps need their own `npm install` to build/run (NestJS,
+Next, Expo). The crypto core and shared packages are verified in CI-friendly
+isolation. WebAuthn/passkey, the BullMQ opt-out queue, and live broker checking
+are Phase 2+.
+
+## Quick start
 
 ```bash
-npm install
-npm start          # then press i (iOS), a (Android), or w (web)
+# Verify the zero-knowledge crypto core (no backend needed):
+cd packages/crypto && npm install && npm test
+
+# Run the web exposure dashboard in mock mode:
+cd apps/web && npm install && npm run dev   # http://localhost:3000
+
+# Run the original Breachly mobile MVP:
+cd apps/mobile && npm install && npm start
 ```
 
-By default the app runs in **mock mode** (`EXPO_PUBLIC_USE_MOCK=true`), so it
-works with zero backend. Demo conventions for the email you enter:
-
-| Email contains | Result                       |
-| -------------- | ---------------------------- |
-| `clear`        | No breaches found            |
-| `error`        | Simulated error state        |
-| anything else  | Sample breached result       |
-
-## Go live (swap in the real lookup)
-
-1. Create a Supabase project and a [HIBP API key](https://haveibeenpwned.com/API/Key).
-2. Set the secret (server-side only):
-   ```bash
-   supabase secrets set HIBP_API_KEY=your_key_here
-   supabase functions deploy check-breach
-   ```
-3. Copy `.env.example` → `.env` and set:
-   ```
-   EXPO_PUBLIC_USE_MOCK=false
-   EXPO_PUBLIC_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
-   EXPO_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
-   ```
-
-The HIBP key lives **only** in the Edge Function. The mobile app never holds
-secrets and never talks to HIBP directly (see `CLAUDE.md` §6, §7).
-
-## Type check
-
-```bash
-npm run lint   # tsc --noEmit
-```
-
-## Layout
-
-```
-app/                     Expo Router screens
-  _layout.tsx            Providers (React Query, SafeArea)
-  index.tsx              The Check screen
-src/
-  api/                   checkBreach client + mock data
-  components/            UI: ResultHeader, BreachCard, DoThisNow, MonitoringUpsell
-  lib/guidance.ts        "Do this now" step builder
-  theme/tokens.ts        Design tokens (§8)
-  types.ts               Shared types
-supabase/functions/
-  check-breach/          Edge Function (HIBP lookup)
-```
+Copy [`.env.example`](./.env.example) to `.env` and fill in secrets
+(HIBP key, DB URLs, JWT secrets) to run the services live. **Secrets stay
+server-side** — the HIBP key lives only in `exposure-service`.

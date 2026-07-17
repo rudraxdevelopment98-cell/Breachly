@@ -1,34 +1,45 @@
 # dependencies
 node_modules/
+.pnp
+.pnp.js
+
+# builds
+dist/
+build/
+.next/
+out/
+web-build/
+
+# turbo
+.turbo/
 
 # Expo
 .expo/
-dist/
-web-build/
 expo-env.d.ts
-
-# Native
 *.orig.*
+
+# native secrets
 *.jks
 *.p8
 *.p12
 *.key
 *.mobileprovision
 
-# Metro
-.metro-health-check*
-
-# Environment / secrets
+# env / secrets
 .env
 .env.local
 .env*.local
 
-# Supabase
-supabase/.temp/
-supabase/.branches/
+# Prisma (generated client)
+**/generated/
 
-# Misc
-.DS_Store
+# Supabase
+apps/mobile/supabase/.temp/
+apps/mobile/supabase/.branches/
+
+# logs / misc
+*.log
 npm-debug.*
 yarn-error.*
-*.log
+.DS_Store
+coverage/

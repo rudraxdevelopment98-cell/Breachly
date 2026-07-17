@@ -1,110 +1,164 @@
-# Breachly — build brief
+# Personal Data OS — codename **aegis**
 
-> App name: **Breachly**.
-> Owner: Kuldeep · Solo build · Mobile-first (iOS + Android).
-> This file is standing context for Claude Code.
+> One app for exposure monitoring, passwords, and documents — with zero-knowledge privacy by design.
+> Owner: Kuldeep · Solo build (security analyst background) · Web-first, mobile to follow.
+> This file is standing context for Claude Code. It supersedes the earlier single-purpose "Breachly" brief.
+
+> **History:** this project started as *Breachly*, a mobile-only breach-checking MVP. That MVP now lives at
+> `apps/mobile/` and seeds the future React Native client. The product has been re-scoped to the platform
+> described below. When guidance here conflicts with the old Breachly framing, **this file wins.**
 
 -----
 
-## 1. What we’re building
+## 1. What we're building
 
-A consumer app that tells people whether their email/passwords have been exposed in data breaches — and then **keeps watching and alerts them the moment they show up in a new one.**
+A privacy-first personal data management platform combining four pillars:
 
-The free “is my email leaked?” check is a hook. The business is **ongoing protection** (monitoring + alerts + password-reuse checks), which is what people actually pay for monthly.
+1. **Exposure scanning + opt-out** — breach checks (HIBP) and data-broker exposure scans, with opt-out automation.
+2. **Zero-knowledge password vault** — client-side encrypted secrets; server never sees plaintext.
+3. **Zero-knowledge document vault** — client-side encrypted files with granular per-person / per-group sharing.
+4. **Age-tiered family / minor accounts** — guardian visibility banded by age, not a single blanket toggle.
 
-**Positioning / moat:** built by a working security analyst. The differentiator is *trust and clear, correct guidance* — not just a scary number. Every result ends with plain-English “do this now” steps.
+**Target users:** privacy-conscious individuals; families with minors; small teams wanting shared secure document storage.
 
-**Non-negotiable:** this is a security app. If it isn’t itself secure and privacy-respecting, it has no reason to exist. See §7.
+**Moat / positioning:** built by a working security analyst. Differentiators are *correctness, zero-knowledge
+rigor, and consequence-aware guidance* — not a scary number. Lean into the SIEM/detection background: the audit
+pipeline can literally feed a detection dashboard.
 
-## 2. Who it’s for
+## 2. Non-negotiable principles (do not violate these — ever)
 
-Everyday people (not security experts) who worry about being hacked. Broad appeal, simple language, no jargon. Secondary: people who reuse passwords and don’t know it.
+1. The server must **never** possess plaintext passwords, vault encryption keys, or document encryption keys.
+2. **All** vault/document encryption and decryption happens **client-side**.
+3. **Every** access to sensitive data must be **audit-logged**.
+4. Minor-account permission defaults must be **age-banded**, never a single blanket toggle.
+5. **Every** sharing grant must be **independently and immediately revocable**.
 
-## 3. How it makes money
+## 3. Regulatory scope
 
-Freemium subscription.
+UK GDPR · EU GDPR · ICO Children's Code (Age-Appropriate Design Code) · CCPA (if expanding to US).
+Phases 3 and 5 have **mandatory review gates** — see §8. Do not launch those phases without sign-off.
 
-- **Free:** one-off breach check for an email; password exposure check; the “do this now” guidance.
-- **Premium (~£2.99/mo or local equivalent):** continuous monitoring of multiple emails, instant alerts on new breaches, password-reuse/health checks, optional family plan later.
+## 4. Tech stack
 
-Payments via **RevenueCat** (handles App Store + Play in-app purchases in one SDK). Pricing is a starting guess — validate later.
+**Frontend**
+- Web: **Next.js 14 (App Router)**, **Tailwind CSS + shadcn/ui**.
+- State: **Zustand** (client) + **React Query** (server cache).
+- Crypto: **libsodium.js** (WebCrypto as fallback) — all client-side encryption.
+- Mobile: **React Native (Expo)** sharing the core crypto module with web via a shared TS package (`packages/crypto`).
 
-## 4. Tech stack (this is also the reusable “engine” for future apps)
+**Backend** — **NestJS** (Node/TS) for shared types with the frontend. Services, each with its **own DB schema**
+(no shared tables):
+- `auth-service` — identity, sessions, 2FA/WebAuthn.
+- `vault-service` — encrypted password + document blobs, sharing grants.
+- `exposure-service` — breach checks, broker scans, opt-out job queue.
+- `family-service` — family spaces, minor tiers, guardian permissions.
+- A **BFF layer** aggregates these for the client.
 
-- **Expo (React Native) + TypeScript** — one codebase → iOS + Android.
-- **Expo Router** — navigation.
-- **Supabase** — auth, Postgres, and **Edge Functions** (server-side; see §6).
-- **RevenueCat** (`react-native-purchases`) — subscriptions.
-- **Expo Notifications** — breach alerts (push).
-- **TanStack Query** for server state; keep local state minimal.
-- Styling: plain RN styles / a light token system. Match the design in §8.
+**Data stores**
+- **PostgreSQL** (one logical schema per service, physically separable later) — via Prisma.
+- **BullMQ** (Redis) for scan / opt-out / re-check recurring jobs.
+- **S3-compatible** object storage for encrypted document blobs (**ciphertext only**, never touched server-side beyond storage).
+- **Redis** cache.
 
-Keep it a monolith. No microservices, no over-engineering. Ship the vertical slice first.
+**Auth**
+- **Argon2id-derived `auth_key`** for login — separate from the `encryption_key`.
+- **TOTP required**; **WebAuthn / passkey is a first-class login method** (baseline table stakes as of 2026, not a differentiator).
+- **Passkey portability via CXP** (Credential Exchange Protocol) import/export — cross-platform sync is where competitors lose users.
+- Short-lived **JWT + refresh-token rotation**.
 
-## 5. Scope — build in this order
+**Hosting:** Vercel (frontend) + a container platform (Fly.io / Railway / AWS ECS) for backend services.
+**Monitoring:** OpenTelemetry tracing + a SIEM-style audit-log pipeline.
 
-**MVP (build first, nothing else):**
+## 5. Crypto design (this is the credibility layer — get it exactly right)
 
-1. The Check screen: email input → result (breached or clear).
-2. If breached: list the breaches (name, year, what leaked) + “do this now” steps.
-3. The monitoring upsell card (static for now — no backend yet).
+- **KDF:** Argon2id, `memory_cost >= 64MB`, `iterations >= 3`, tuned per device benchmark. Outputs:
+  - `auth_key` — sent to server for login verification **only**; cannot decrypt anything.
+  - `encryption_key` — **never leaves the device**; encrypts/decrypts vault + document keys locally.
+- **Vault item encryption:** AES-256-GCM per item, unique nonce per item.
+  **CRITICAL LESSON FROM THE LASTPASS 2022 BREACH:** encrypt **metadata** (site URLs, item titles, folder names)
+  with the *same* rigor as the secret values. LastPass left metadata plaintext and it fuelled targeted phishing.
+  Do **not** treat metadata as "low sensitivity, fine to keep plaintext for search convenience." This is the mistake to avoid.
+- **Document encryption:** each document gets its own `file_key` (AES-256-GCM). The `file_key` is **wrapped**
+  (encrypted) separately per recipient using the recipient's public key (X25519 sealed boxes via libsodium).
+- **Sharing model:**
+  - *Individual share:* `file_key` wrapped with recipient's `public_key`, stored as a `share_grant` row.
+  - *Group share:* `file_key` wrapped with a `group_key`; the `group_key` is itself wrapped per member — so
+    "share with Family" needs no per-person re-encryption on membership change.
+  - *Revocation:* delete the wrapped-key row for that recipient/member — does not touch ciphertext or other grants.
+  - *Expiring links:* `share_grant` has `expires_at` + `max_views`, enforced server-side at the grant level
+    (server can withhold the wrapped key after expiry even though it can't read the document).
+- **Recovery:** optional high-entropy recovery key generated at signup, shown once, stored offline by the user.
+  **Explicit non-goal:** no "email me a reset link" flow for vault/document decryption — that would break zero-knowledge.
 
-**Phase 2 (only after MVP works end-to-end):**
-4. Auth (Supabase) so a user can save emails to monitor.
-5. RevenueCat paywall gating monitoring.
-6. Monitoring backend: scheduled re-checks + push alert on new breach.
-7. Password exposure check (k-anonymity, see §6).
+## 6. Data model (per service — see `docs/` / Prisma schemas for the source of truth)
 
-**Later:** multiple emails, family plan, password-reuse audit, dark-web extras.
+- **auth-service:** `users` (id, email, phone, auth_key_hash, mfa_enabled, public_key, created_at), `sessions`.
+- **vault-service:** `vault_items` (ciphertext, nonce, type), `documents` (s3_key, file_key_wrapped_for_owner),
+  `share_grants` (grantee_type, wrapped_key, permission, expires_at, max_views), `groups`, `group_members`.
+- **exposure-service:** `breach_records`, `broker_listings` (status: found|opt_out_pending|removed|reappeared),
+  `opt_out_requests`.
+- **family-service:** `family_spaces`, `family_members` (age_tier, permission_tier), `guardian_permissions`.
+- **audit_log** (every service): id, actor_id, action, target_type, target_id, ip, timestamp.
 
-**Explicit non-goals (do NOT build yet):** VPN, antivirus, social features, Android-only system hooks, a web app. Resist scope creep.
+## 7. Minor-account permission defaults (age-banded — principle #4)
 
-## 6. Data sources & API rules
+- **Under 13 → `full_guardian_visibility`.** Guardian has full content access by default (COPPA-style duty of care).
+- **Teen 13–17 → `shared_visibility_metadata_plus_alerts`.** Guardian sees *metadata* (categories of stored data,
+  breach alerts involving the teen) and receives safety alerts, but **not** default full content access. Teen may
+  grant specific item access voluntarily. Configurable by the guardian **within a bounded set** — never below the
+  metadata+alerts floor, never forced to full-access-always. Mirrors Apple Family Sharing / Google Family Link and
+  the ICO Children's Code.
+- **Adult → `no_guardian_access`.** Standard independent account.
+- **`requires_legal_review_before_launch: true`.**
 
-Use **Have I Been Pwned (HIBP)** — the trusted standard.
+## 8. Phases — build in this order
 
-- **Email breach lookup:** HIBP `breachedaccount` endpoint. Requires an API key (`hibp-api-key` header). **The key must NEVER be in the mobile app.** Call HIBP from a **Supabase Edge Function** (`check-breach`); the app calls *your* function, which calls HIBP. This protects the key and lets you add caching + rate-limiting.
-- **Password exposure check:** HIBP **Pwned Passwords range API** using **k-anonymity** — SHA-1 the password, send only the first 5 hash chars, match the returned suffixes locally. This is free, needs no key, and **never transmits the password.** This can run client-side because it’s safe by design.
-- **Review HIBP’s commercial API terms and pricing before launch** — confirm the subscription tier and acceptable use for a paid product.
+1. **Foundations + Exposure Scanner** *(current)* — monorepo; auth-service (signup/login, Argon2id, sessions);
+   HIBP breach checks; curated broker-scan module (15–20 sites); exposure dashboard UI; **audit-logging pipeline
+   (build once, reuse everywhere).**
+2. **Opt-Out Workflow** — BullMQ job queue; semi-automated opt-out generation (human confirms send); recurring
+   re-check jobs (quarterly) for reappearance; notifications.
+3. **Zero-Knowledge Password Vault** — client crypto module; vault CRUD (ciphertext-only backend); password health
+   checks (client-side); 2FA/WebAuthn unlock; recovery-key flow. **→ Independent security review / pentest before Phase 4.**
+4. **Document Vault + Sharing** — client-side file_key encryption; S3 ciphertext blobs; individual + group share
+   grants; expiring links + permission enforcement; revocation + per-document audit trail.
+5. **Family Spaces + Minor Accounts** — family spaces; age-tier defaults; guardian metadata+alert view; age-appropriate
+   consent flows. **→ LEGAL REVIEW CHECKPOINT — do not launch without sign-off.**
+6. **Differentiators + Polish** — security-score dashboard; emergency/legacy access; panic/lockdown mode; mobile
+   doc scanning (capture→crop→OCR→encrypted entry); full opt-out automation; **California DROP API** integration;
+   **passkey CXP** import/export; **contextual/consequence-aware threat alerts**; **Travel Mode** (temporarily hide
+   sensitive items on higher-risk devices / border crossings).
 
-Architecture rule: anything involving a secret key or breach data lookup goes **server-side (Edge Function)**. The app never holds secrets.
+## 9. External APIs & integration rules
 
-## 7. Security & privacy (the credibility layer — get this right)
+- **HaveIBeenPwned** — breach checks. Key is **server-side only** (exposure-service); the app never holds it.
+- **California CalPrivacy DROP API** (Delete Request & Opt-Out Platform) — single-request deletion across CA-registered
+  brokers; sandbox opens 2026. **Prioritize for CA users** before broader scraper coverage — it replaces dozens of
+  fragile broker integrations with one legally-mandated API.
+- **Broker scan targets outside DROP's scope** — start with a curated 15–20 high-traffic people-search sites; expand later.
+- **Pluggable "registry adapter" pattern** — design the opt-out engine so equivalent state/country deletion platforms
+  drop in without rearchitecting.
 
-- **Never store user passwords.** Ever. Password checks are k-anonymity only.
-- Store monitored emails **encrypted at rest**; collect the minimum data possible.
-- Clear, honest **privacy policy** (required by both app stores anyway). State plainly what’s collected and that passwords are never sent.
-- No third-party data selling. Make this a visible selling point.
-- Give users a way to delete their account + data from inside the app (Play/App Store requirement).
+## 10. Market context (July 2026) — why these choices
 
-## 8. Design direction
+- **Passkeys** are baseline across all major managers. Differentiation shifted to **cross-platform sync via CXP**.
+- **LastPass 2022** exposed encrypted vaults + *unencrypted metadata*; that metadata enabled targeted phishing with
+  losses still surfacing years later → metadata-level encryption is table stakes.
+- **California Delete Act** (DROP, effective Jan 1 2026; brokers must act from Aug 1 2026 or face $200/day/request).
+- **AI threat evolution** — AI-generated phishing ~4× click-through vs human; voice-cloning fraud rising → static
+  breach lists matter less than **contextual, consequence-aware alerts**.
+- **Family features that win** — 1Password's shared+private vaults, organizer role, and **Travel Mode** are the benchmark.
 
-Calm, credible, trustworthy — **not** alarmist red-everywhere (that reads like a scam). Match this palette:
+## 11. Open questions for the founder (affect the critical path — surface, don't guess)
 
-- Deep navy base (`#0B121A`), card surfaces (`#13202E`), hairlines (`#21364A`).
-- Safe = mint green (`#46D6A6`); exposed = calm amber (`#F2B24B`); high severity = red (`#FF6B6B`) used sparingly; primary action = blue (`#5BA9F4`).
-- Type: Inter for UI, a mono (JetBrains Mono) for counts/dates/labels.
-- Tone of copy: plain, reassuring, active voice. “Do this now,” not “Remediation steps.”
+1. Which **jurisdiction launches first** (drives which compliance work is critical-path)?
+2. Do documents/passwords **sync offline-first**, or always require connectivity?
+3. **Pricing** — freemium exposure scan with paid vault/family tiers, or single subscription?
+4. **Who performs** the pre-Phase-3 and pre-Phase-5 security/legal reviews (budget + timeline dependency)?
 
-## 9. Status
+## 12. Operating principles
 
-MVP vertical slice built: Check screen + `check-breach` Edge Function + wiring with
-loading/clear/error states. Uses mock data when `EXPO_PUBLIC_USE_MOCK=true` (default),
-swaps to the live Edge Function once Supabase + HIBP key are configured.
-
-Do **not** add auth, paywall, or monitoring yet — get the core check solid first.
-
-## 10. Accounts & keys needed (set up as you go)
-
-- GitHub repo (this one).
-- Supabase project (free tier) — for the Edge Function + later auth/DB.
-- HIBP API key — for the email lookup (check pricing/terms first).
-- Expo / EAS account (free) — for builds.
-- Later, before publishing: Apple Developer ($99/yr), Google Play ($25 one-time), RevenueCat account, a privacy-policy URL.
-
-## 11. Operating principles
-
-- Ship the slice, then improve from real feedback. Don’t gold-plate.
-- One engine, reused on future apps — keep auth/paywall/analytics modular.
-- Measure installs + paying conversions; if it’s flat after 4–6 weeks of real effort, reassess.
-- Distribution (ASO, launch) is half the job. Plan it, don’t just build.
+- Build phase by phase; each phase is the smallest shippable, reviewable slice. Don't boil the ocean.
+- The four non-negotiables in §2 are hard gates on every PR, not aspirations.
+- One reusable engine (auth / crypto / audit) — keep it modular.
+- Distribution is half the job. Plan launch per §11.1.

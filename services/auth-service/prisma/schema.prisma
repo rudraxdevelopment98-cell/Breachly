@@ -1,0 +1,63 @@
+// auth-service schema (aegis §6). Its OWN database — no shared tables.
+// The server stores a HASH of the client-derived auth_key, never the password
+// and never the encryption_key.
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("AUTH_DATABASE_URL")
+}
+
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  phone        String?
+  // Argon2id hash of the client-supplied auth_key. Login = re-hash + verify.
+  authKeyHash  String
+  // The Argon2id salt the CLIENT uses to derive keys (public-per-user).
+  clientSalt   String
+  // X25519 public key (base64) for document-share key wrapping.
+  publicKey    String
+  mfaEnabled   Boolean   @default(false)
+  totpSecret   String? // encrypted at rest in a real deployment
+  createdAt    DateTime  @default(now())
+  sessions     Session[]
+
+  @@map("users")
+}
+
+model Session {
+  id               String   @id @default(uuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Hash of the refresh token (rotation: a new hash replaces the old on refresh).
+  refreshTokenHash String
+  deviceInfo       String?
+  ip               String?
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  createdAt        DateTime @default(now())
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+// Shared audit shape (aegis §6). Every service owns a copy of this table.
+model AuditLog {
+  id         String   @id @default(uuid())
+  actorId    String?
+  action     String
+  targetType String
+  targetId   String?
+  ip         String?
+  metadata   Json?
+  timestamp  DateTime @default(now())
+
+  @@index([actorId])
+  @@index([action])
+  @@map("audit_log")
+}
