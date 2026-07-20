@@ -39,5 +39,12 @@ jobs:
       - name: Typecheck — web
         run: npm run typecheck -w @aegis/web
 
+      - name: Typecheck — mobile (Expo)
+        run: npm run lint -w @aegis/mobile
+
       - name: Build — web (mock mode)
         run: npm run build -w @aegis/web
+
+      - name: Bundle — mobile iOS + Android (Metro export)
+        run: |
+          npm run export:ci -w @aegis/mobile

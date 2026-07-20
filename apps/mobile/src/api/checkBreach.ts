@@ -1,19 +1,21 @@
+import type { BreachCheckResponse, BreachRecord } from '@aegis/types';
 import type { Breach, CheckResult } from '@/types';
 import { getMockResult } from './mockBreaches';
 
 /**
- * Client for the breach check.
+ * Mobile breach-check client.
  *
- * In mock mode (EXPO_PUBLIC_USE_MOCK !== 'false') it returns local sample
- * data so the app runs with no backend. Otherwise it calls the Supabase
- * `check-breach` Edge Function, which holds the HIBP secret key server-side
- * (see CLAUDE.md §6). The app NEVER talks to HIBP directly and NEVER holds
- * the key.
+ * Talks to the SAME backend contract as the web app: the aegis
+ * `exposure-service` (`POST /exposure/breach-check`), which holds the HIBP
+ * secret key server-side (CLAUDE.md §9). The app never holds the key.
+ *
+ * In mock mode (EXPO_PUBLIC_USE_MOCK !== 'false') it returns local sample data
+ * so it runs on a device/simulator with no backend.
  */
 
 const USE_MOCK = process.env.EXPO_PUBLIC_USE_MOCK !== 'false';
-const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
-const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
+const API_BASE =
+  process.env.EXPO_PUBLIC_API_BASE ?? 'http://localhost:4002';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -26,6 +28,22 @@ export class CheckBreachError extends Error {
     super(message);
     this.name = 'CheckBreachError';
   }
+}
+
+/** Map the shared BreachRecord (exposure-service) → the app's display shape. */
+function toBreach(r: BreachRecord): Breach {
+  return {
+    name: r.breachName,
+    title: r.title,
+    domain: r.domain,
+    year: r.year,
+    breachDate: r.breachDate,
+    dataClasses: r.exposedFields,
+    description: r.description,
+    isSensitive: false,
+    isVerified: true,
+    logoPath: null,
+  };
 }
 
 export async function checkBreach(emailRaw: string): Promise<CheckResult> {
@@ -47,23 +65,13 @@ export async function checkBreach(emailRaw: string): Promise<CheckResult> {
     }
   }
 
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-    throw new CheckBreachError(
-      'Backend not configured. Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY, or use mock mode.',
-    );
-  }
-
-  const endpoint = `${SUPABASE_URL.replace(/\/$/, '')}/functions/v1/check-breach`;
+  const endpoint = `${API_BASE.replace(/\/$/, '')}/exposure/breach-check`;
 
   let res: Response;
   try {
     res = await fetch(endpoint, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-        apikey: SUPABASE_ANON_KEY,
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email }),
     });
   } catch {
@@ -75,20 +83,12 @@ export async function checkBreach(emailRaw: string): Promise<CheckResult> {
   if (res.status === 429) {
     throw new CheckBreachError('Too many checks. Wait a moment and try again.');
   }
-
   if (!res.ok) {
-    throw new CheckBreachError(
-      'The check failed. Please try again in a moment.',
-    );
+    throw new CheckBreachError('The check failed. Please try again in a moment.');
   }
 
-  const data = (await res.json()) as {
-    breached: boolean;
-    breaches: Breach[];
-    passwordExposed?: boolean;
-  };
-
-  const breaches = Array.isArray(data.breaches) ? data.breaches : [];
+  const data = (await res.json()) as BreachCheckResponse;
+  const breaches = Array.isArray(data.breaches) ? data.breaches.map(toBreach) : [];
 
   return {
     email,
@@ -97,7 +97,7 @@ export async function checkBreach(emailRaw: string): Promise<CheckResult> {
     passwordExposed:
       data.passwordExposed ??
       breaches.some((b) =>
-        b.dataClasses?.some((c) => c.toLowerCase().includes('password')),
+        b.dataClasses.some((c) => c.toLowerCase().includes('password')),
       ),
     checkedAt: new Date().toISOString(),
   };

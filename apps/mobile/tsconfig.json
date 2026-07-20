@@ -4,7 +4,9 @@
     "strict": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      "@aegis/types": ["../../packages/types/src/index.ts"],
+      "@aegis/crypto": ["../../packages/crypto/src/index.ts"]
     }
   },
   "include": [

@@ -52,15 +52,24 @@ are Phase 2+.
 ## Quick start
 
 ```bash
+npm install   # once, from the repo root (installs all workspaces)
+
 # Verify the zero-knowledge crypto core (no backend needed):
-cd packages/crypto && npm install && npm test
+npm test -w @aegis/crypto
 
-# Run the web exposure dashboard in mock mode:
-cd apps/web && npm install && npm run dev   # http://localhost:3000
+# Web (browser) — http://localhost:3000
+npm run dev -w @aegis/web
 
-# Run the original Breachly mobile MVP:
-cd apps/mobile && npm install && npm start
+# Mobile (iPhone + Android, one codebase) — opens Expo dev server + QR code
+npm start -w @aegis/mobile
+#   • physical device: install Expo Go, scan the QR
+#   • iOS simulator: press i (Xcode)   • Android emulator: press a (Android Studio)
 ```
+
+Both apps run in **mock mode** by default — no backend needed. They share
+`@aegis/types` and hit the same `exposure-service` contract when pointed at a
+live backend (`*_USE_MOCK=false`). Store-ready mobile binaries are built with
+EAS (`npx eas build -p ios|android`) — see [`apps/mobile/README.md`](./apps/mobile/README.md).
 
 Copy [`.env.example`](./.env.example) to `.env` and fill in secrets
 (HIBP key, DB URLs, JWT secrets) to run the services live. **Secrets stay
