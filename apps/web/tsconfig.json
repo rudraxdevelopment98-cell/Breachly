@@ -1,20 +1,37 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "lib": ["DOM", "DOM.Iterable", "ES2022"],
+    "lib": [
+      "DOM",
+      "DOM.Iterable",
+      "ES2022"
+    ],
     "jsx": "preserve",
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "declaration": false,
+    "declarationMap": false,
     "noEmit": true,
     "allowJs": true,
     "incremental": true,
-    "plugins": [{ "name": "next" }],
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "baseUrl": ".",
     "paths": {
-      "@aegis/crypto": ["../../packages/crypto/src/index.ts"],
-      "@aegis/types": ["../../packages/types/src/index.ts"],
-      "@/*": ["./src/*"]
-    }
+      "@aegis/crypto": [
+        "../../packages/crypto/src/index.ts"
+      ],
+      "@aegis/types": [
+        "../../packages/types/src/index.ts"
+      ],
+      "@/*": [
+        "./src/*"
+      ]
+    },
+    "isolatedModules": true
   },
   "include": [
     "next-env.d.ts",
@@ -22,5 +39,7 @@
     "**/*.tsx",
     ".next/types/**/*.ts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules"
+  ]
 }

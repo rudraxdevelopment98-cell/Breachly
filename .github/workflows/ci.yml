@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+# Cancel superseded runs on the same ref.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Verify packages + web
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install (workspaces)
+        run: npm ci
+
+      - name: Crypto core — smoke test (zero-knowledge invariants)
+        run: npm test -w @aegis/crypto
+
+      - name: Typecheck — crypto
+        run: npm run typecheck -w @aegis/crypto
+
+      - name: Typecheck — shared packages
+        run: |
+          npx tsc --noEmit -p packages/types/tsconfig.json
+          npx tsc --noEmit -p packages/audit/tsconfig.json
+
+      - name: Typecheck — web
+        run: npm run typecheck -w @aegis/web
+
+      - name: Build — web (mock mode)
+        run: npm run build -w @aegis/web

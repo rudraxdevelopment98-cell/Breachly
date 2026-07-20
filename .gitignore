@@ -18,6 +18,10 @@ web-build/
 expo-env.d.ts
 *.orig.*
 
+# Next.js
+next-env.d.ts
+*.tsbuildinfo
+
 # native secrets
 *.jks
 *.p8
