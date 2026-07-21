@@ -10,13 +10,20 @@
   ],
   "scripts": {
     "build": "turbo run build",
-    "dev": "turbo run dev",
     "lint": "turbo run lint",
     "test": "turbo run test",
-    "typecheck": "turbo run typecheck"
+    "typecheck": "turbo run typecheck",
+    "dev:api": "npm run dev -w @aegis/exposure-service",
+    "dev:web": "cross-env NEXT_PUBLIC_USE_MOCK=false NEXT_PUBLIC_API_BASE=http://localhost:4002 npm run dev -w @aegis/web",
+    "dev:mobile": "cross-env EXPO_PUBLIC_USE_MOCK=false npm start -w @aegis/mobile",
+    "dev": "concurrently -n api,web -c blue,green \"npm:dev:api\" \"npm:dev:web\"",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down"
   },
   "devDependencies": {
     "@types/react": "18.3.31",
+    "concurrently": "^8.2.2",
+    "cross-env": "^7.0.3",
     "turbo": "^2.0.9",
     "typescript": "~5.5.4"
   },

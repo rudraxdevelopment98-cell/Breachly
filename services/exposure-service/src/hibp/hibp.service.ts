@@ -19,6 +19,8 @@ interface HibpBreach {
   DataClasses: string[];
 }
 
+type CleanBreach = Omit<BreachRecord, 'id' | 'discoveredAt'>;
+
 @Injectable()
 export class HibpService {
   private readonly apiKey = process.env.HIBP_API_KEY ?? '';
@@ -28,11 +30,14 @@ export class HibpService {
   }
 
   /** Returns the breaches for an email, or [] if none (HIBP 404). */
-  async breachedAccount(email: string): Promise<
-    Omit<BreachRecord, 'id' | 'discoveredAt'>[]
-  > {
+  async breachedAccount(email: string): Promise<CleanBreach[]> {
+    // Dev / free path: with no paid HIBP key, serve realistic sample data so
+    // the whole stack (web + mobile) works end-to-end at zero cost. Flips to
+    // live HIBP automatically once HIBP_API_KEY is set. Emails containing
+    // "clear" return no breaches so the all-clear state is testable.
     if (!this.configured) {
-      throw new HttpException('HIBP not configured', 503);
+      if (email.includes('clear')) return [];
+      return SAMPLE_BREACHES;
     }
 
     const url =
@@ -81,3 +86,31 @@ function stripHtml(html: string): string {
     .replace(/&gt;/g, '>')
     .trim();
 }
+
+// Sample data used only when HIBP_API_KEY is absent (dev / free path).
+const SAMPLE_BREACHES: CleanBreach[] = [
+  {
+    source: 'sample',
+    breachName: 'Adobe',
+    title: 'Adobe',
+    domain: 'adobe.com',
+    year: 2013,
+    breachDate: '2013-10-04',
+    exposedFields: ['Email addresses', 'Password hints', 'Passwords', 'Usernames'],
+    description:
+      'In October 2013, 153 million Adobe accounts were breached, exposing emails, encrypted passwords and password hints.',
+    passwordExposed: true,
+  },
+  {
+    source: 'sample',
+    breachName: 'LinkedIn',
+    title: 'LinkedIn',
+    domain: 'linkedin.com',
+    year: 2012,
+    breachDate: '2012-05-05',
+    exposedFields: ['Email addresses', 'Passwords'],
+    description:
+      'In 2012, LinkedIn was breached and 164 million accounts were exposed, including emails and SHA-1 hashed passwords.',
+    passwordExposed: true,
+  },
+];

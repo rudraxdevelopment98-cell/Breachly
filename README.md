@@ -53,23 +53,53 @@ are Phase 2+.
 
 ```bash
 npm install   # once, from the repo root (installs all workspaces)
-
-# Verify the zero-knowledge crypto core (no backend needed):
-npm test -w @aegis/crypto
-
-# Web (browser) — http://localhost:3000
-npm run dev -w @aegis/web
-
-# Mobile (iPhone + Android, one codebase) — opens Expo dev server + QR code
-npm start -w @aegis/mobile
-#   • physical device: install Expo Go, scan the QR
-#   • iOS simulator: press i (Xcode)   • Android emulator: press a (Android Studio)
 ```
 
-Both apps run in **mock mode** by default — no backend needed. They share
-`@aegis/types` and hit the same `exposure-service` contract when pointed at a
-live backend (`*_USE_MOCK=false`). Store-ready mobile binaries are built with
-EAS (`npx eas build -p ios|android`) — see [`apps/mobile/README.md`](./apps/mobile/README.md).
+### Run the whole thing live (free — no DB, no API keys)
+
+```bash
+npm run dev            # starts exposure-service (:4002) + web (:3000) together,
+                       # with the web app pointed at the REAL backend
+
+npm run dev:mobile     # in another terminal — Expo for iPhone + Android,
+                       # also pointed at the real backend
+#   • physical device: install Expo Go, scan the QR
+#   • iOS simulator: press i (Xcode)   • Android emulator: press a (Android Studio)
+#   • on a physical device, set EXPO_PUBLIC_API_BASE to your machine's LAN IP
+```
+
+The backend runs with **zero infrastructure and zero cost**: with no `HIBP_API_KEY`
+it serves realistic sample breach data, and with no `EXPOSURE_DATABASE_URL` it runs
+without a database (audit logs go to stdout). So **whatever we build, you can see it**
+across web + iPhone + Android immediately. It flips to live HIBP + persistence the
+moment you add those (see below).
+
+### Run pieces individually / in mock mode
+
+```bash
+npm test -w @aegis/crypto          # zero-knowledge crypto core, 9/9
+npm run dev:api                    # just the exposure-service (:4002)
+npm run dev -w @aegis/web          # just the web app in MOCK mode (no backend)
+npm start -w @aegis/mobile         # just mobile in MOCK mode
+```
+
+### Add real persistence (still free, local)
+
+```bash
+npm run db:up                      # Postgres + Redis via Docker
+# set AUTH_DATABASE_URL / EXPOSURE_DATABASE_URL in .env (see .env.example)
+npm run prisma:migrate -w @aegis/exposure-service
+npm run prisma:migrate -w @aegis/auth-service
+npm run dev                        # now persists breach/broker/audit rows
+```
+
+### Go live with real breach data
+
+Set `HIBP_API_KEY` (~$4/mo) in `.env` — the exposure-service automatically switches
+from sample data to live HaveIBeenPwned lookups. The key stays server-side only.
+
+Store-ready mobile binaries are built with EAS (`npx eas build -p ios|android`) —
+see [`apps/mobile/README.md`](./apps/mobile/README.md).
 
 Copy [`.env.example`](./.env.example) to `.env` and fill in secrets
 (HIBP key, DB URLs, JWT secrets) to run the services live. **Secrets stay

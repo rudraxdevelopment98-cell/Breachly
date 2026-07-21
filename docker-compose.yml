@@ -1,0 +1,39 @@
+# Optional local infra for aegis dev — free, runs on your machine.
+# The services also run WITHOUT this (DB-less dev mode); bring this up only when
+# you want real persistence + the job queue.
+#
+#   docker compose up -d       # or: npm run db:up
+#   # then set AUTH_DATABASE_URL / EXPOSURE_DATABASE_URL in .env and migrate.
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      # Both service databases live in one instance for local dev.
+      POSTGRES_MULTIPLE_DATABASES: aegis_auth,aegis_exposure
+    ports:
+      - '5432:5432'
+    volumes:
+      - aegis_pgdata:/var/lib/postgresql/data
+      - ./scripts/init-multiple-dbs.sh:/docker-entrypoint-initdb.d/init-multiple-dbs.sh
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  aegis_pgdata:

@@ -36,6 +36,16 @@ jobs:
           npx tsc --noEmit -p packages/types/tsconfig.json
           npx tsc --noEmit -p packages/audit/tsconfig.json
 
+      - name: Generate Prisma clients (services)
+        run: |
+          npm run prisma:generate -w @aegis/auth-service
+          npm run prisma:generate -w @aegis/exposure-service
+
+      - name: Typecheck — services
+        run: |
+          npm run typecheck -w @aegis/auth-service
+          npm run typecheck -w @aegis/exposure-service
+
       - name: Typecheck — web
         run: npm run typecheck -w @aegis/web
 
