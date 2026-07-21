@@ -6,6 +6,7 @@
   "scripts": {
     "build": "nest build",
     "dev": "ts-node src/main.ts",
+    "start:prod": "ts-node src/main.ts",
     "start": "node dist/main.js",
     "typecheck": "tsc --noEmit",
     "prisma:generate": "prisma generate",

@@ -9,7 +9,8 @@ async function bootstrap() {
     new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }),
   );
   app.enableCors();
-  const port = Number(process.env.AUTH_SERVICE_PORT ?? 4001);
+  // Hosts (Render/Railway/Fly) inject PORT; fall back to the service default.
+  const port = Number(process.env.PORT ?? process.env.AUTH_SERVICE_PORT ?? 4001);
   await app.listen(port);
   // eslint-disable-next-line no-console
   console.log(`auth-service listening on :${port}`);
