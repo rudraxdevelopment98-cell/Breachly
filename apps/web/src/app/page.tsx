@@ -4,6 +4,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import type { BrokerListingStatus } from '@aegis/types';
 import { checkBreaches, isValidEmail, scanBrokers } from '@/lib/api';
+import { AuthBar } from '@/components/AuthBar';
 
 const STATUS_LABEL: Record<BrokerListingStatus, { text: string; color: string }> = {
   found: { text: 'Found', color: 'text-exposed border-exposed' },
@@ -25,8 +26,8 @@ export default function Dashboard() {
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-12">
-      <p className="font-mono text-xs tracking-widest text-primary">AEGIS</p>
-      <h1 className="mt-2 text-3xl font-bold">Exposure dashboard</h1>
+      <AuthBar />
+      <h1 className="mt-8 text-3xl font-bold">Exposure dashboard</h1>
       <p className="mt-2 text-textMuted">
         Check an email against known breaches and see your data-broker exposure.
         Private by design — secrets never leave your device.
