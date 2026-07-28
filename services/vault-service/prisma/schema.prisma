@@ -1,0 +1,91 @@
+// vault-service schema (aegis §6). Its OWN database — no shared tables.
+// The server stores ONLY ciphertext + nonce; it can never read item contents.
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("VAULT_DATABASE_URL")
+}
+
+model VaultItem {
+  id         String   @id @default(uuid())
+  ownerId    String
+  type       String // password | note | card
+  ciphertext String // AEAD ciphertext of the WHOLE item incl. metadata
+  nonce      String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([ownerId])
+  @@map("vault_items")
+}
+
+model Document {
+  id                    String   @id @default(uuid())
+  ownerId               String
+  // Encrypted filename lives in the ciphertext blob; this is a random label.
+  s3Key                 String
+  fileKeyWrappedForOwner String
+  size                  Int
+  createdAt             DateTime @default(now())
+
+  @@index([ownerId])
+  @@map("documents")
+}
+
+model ShareGrant {
+  id          String    @id @default(uuid())
+  // Points at a document or vault item.
+  resourceId  String
+  resourceType String // document | vault_item
+  granteeType String // user | group
+  granteeId   String
+  wrappedKey  String // file_key/item_key wrapped for the grantee's public key
+  permission  String // view | download
+  expiresAt   DateTime?
+  maxViews    Int?
+  createdAt   DateTime  @default(now())
+
+  @@index([resourceId])
+  @@index([granteeId])
+  @@map("share_grants")
+}
+
+model Group {
+  id                 String   @id @default(uuid())
+  name               String
+  ownerId            String
+  groupKeyWrappedForOwner String
+  members            GroupMember[]
+
+  @@map("groups")
+}
+
+model GroupMember {
+  groupId         String
+  group           Group  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  userId          String
+  wrappedGroupKey String
+  role            String // admin | member
+
+  @@id([groupId, userId])
+  @@map("group_members")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  actorId    String?
+  action     String
+  targetType String
+  targetId   String?
+  ip         String?
+  metadata   Json?
+  timestamp  DateTime @default(now())
+
+  @@index([actorId])
+  @@map("audit_log")
+}

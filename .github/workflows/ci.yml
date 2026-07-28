@@ -40,11 +40,13 @@ jobs:
         run: |
           npm run prisma:generate -w @aegis/auth-service
           npm run prisma:generate -w @aegis/exposure-service
+          npm run prisma:generate -w @aegis/vault-service
 
       - name: Typecheck — services
         run: |
           npm run typecheck -w @aegis/auth-service
           npm run typecheck -w @aegis/exposure-service
+          npm run typecheck -w @aegis/vault-service
 
       - name: Typecheck — web
         run: npm run typecheck -w @aegis/web

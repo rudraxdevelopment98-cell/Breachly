@@ -16,7 +16,10 @@ export function AuthBar() {
     <div className="flex items-center justify-between border-b border-hairline pb-4">
       <span className="font-mono text-xs tracking-widest text-primary">AEGIS</span>
       {session ? (
-        <div className="flex items-center gap-3 text-sm">
+        <div className="flex items-center gap-4 text-sm">
+          <Link href="/vault" className="text-textMuted hover:text-text">
+            Vault
+          </Link>
           <span className="font-mono text-xs text-textMuted">{session.email}</span>
           <button onClick={logout} className="text-textFaint hover:text-text">
             Log out

@@ -1,0 +1,26 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "target": "ES2021",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "declaration": false,
+    "declarationMap": false,
+    "outDir": "dist",
+    "types": ["node"],
+    "noUncheckedIndexedAccess": false,
+    "baseUrl": ".",
+    "paths": {
+      "@aegis/types": ["../../packages/types/src/index.ts"],
+      "@aegis/audit": ["../../packages/audit/src/index.ts"],
+      "@aegis/crypto": ["../../packages/crypto/src/index.ts"]
+    }
+  },
+  "ts-node": {
+    "transpileOnly": true,
+    "require": ["tsconfig-paths/register"]
+  },
+  "include": ["src/**/*.ts"]
+}

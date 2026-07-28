@@ -14,9 +14,11 @@
     "test": "turbo run test",
     "typecheck": "turbo run typecheck",
     "dev:api": "npm run dev -w @aegis/exposure-service",
-    "dev:web": "cross-env NEXT_PUBLIC_USE_MOCK=false NEXT_PUBLIC_API_BASE=http://localhost:4002 npm run dev -w @aegis/web",
+    "dev:auth": "npm run dev -w @aegis/auth-service",
+    "dev:vault": "npm run dev -w @aegis/vault-service",
+    "dev:web": "cross-env NEXT_PUBLIC_USE_MOCK=false NEXT_PUBLIC_API_BASE=http://localhost:4002 NEXT_PUBLIC_AUTH_BASE=http://localhost:4001 NEXT_PUBLIC_VAULT_BASE=http://localhost:4003 npm run dev -w @aegis/web",
     "dev:mobile": "cross-env EXPO_PUBLIC_USE_MOCK=false npm start -w @aegis/mobile",
-    "dev": "concurrently -n api,web -c blue,green \"npm:dev:api\" \"npm:dev:web\"",
+    "dev": "concurrently -n auth,api,vault,web -c magenta,blue,cyan,green \"npm:dev:auth\" \"npm:dev:api\" \"npm:dev:vault\" \"npm:dev:web\"",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down"
   },

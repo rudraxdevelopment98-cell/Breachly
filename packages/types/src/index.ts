@@ -5,4 +5,5 @@
 export * from './auth';
 export * from './exposure';
 export * from './family';
+export * from './vault';
 export * from './audit';
